@@ -7,3 +7,4 @@ pnpm-lock.yaml
 # Docpup generated docs
 documentation/anthropic-sdk-rs/
 documentation/claude-platform/
+**/.scratch.md
