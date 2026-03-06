@@ -14,6 +14,7 @@ An unofficial Rust SDK for the [Anthropic API](https://docs.anthropic.com/claude
 - Token counting utilities for accurate message length estimation
 - Type-safe API with full Rust type definitions
 - Easy-to-use builder patterns for request construction
+- Adaptive and manual thinking controls for Messages API requests
 - Beta API support including Files API
 
 ## Installation
@@ -29,8 +30,11 @@ cargo add anthropic-ai-sdk
 ```rust
 use anthropic_ai_sdk::client::AnthropicClient;
 use anthropic_ai_sdk::types::message::{
-    CreateMessageParams, Message, MessageClient, MessageError, RequiredMessageParams, Role,
+    CreateMessageParams, Effort, Message, MessageClient, MessageError, OutputConfig,
+    RequiredMessageParams, Role, Thinking,
 };
+use futures_util::StreamExt;
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,10 +44,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // stream(false)
     let body = CreateMessageParams::new(RequiredMessageParams {
-        model: "claude-3-7-sonnet-latest".to_string(),
+        model: "claude-sonnet-4-6".to_string(),
         messages: vec![Message::new_text(Role::User, "Hello, Claude")],
-        max_tokens: 1024,
-    });
+        max_tokens: 4096,
+    })
+    .with_thinking(Thinking::adaptive())
+    .with_output_config(OutputConfig::new().with_effort(Effort::Medium));
 
     match client.create_message(Some(&body)).await {
         Ok(message) => {
@@ -56,10 +62,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // stream(true)
     let body = CreateMessageParams::new(RequiredMessageParams {
-        model: "claude-3-7-sonnet-latest".to_string(),
+        model: "claude-sonnet-4-6".to_string(),
         messages: vec![Message::new_text(Role::User, "Hello, Claude")],
-        max_tokens: 1024,
+        max_tokens: 4096,
     })
+    .with_thinking(Thinking::adaptive())
+    .with_output_config(OutputConfig::new().with_effort(Effort::Medium))
     .with_stream(true);
 
     match client.create_message_streaming(&body).await {
@@ -79,6 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+For older models that still require manual thinking budgets, use
+`Thinking::enabled(2048)` instead of `Thinking::adaptive()`.
 
 ### Files API (Beta)
 
