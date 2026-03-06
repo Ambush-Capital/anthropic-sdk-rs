@@ -1,0 +1,57 @@
+# Docpup configuration for anthropic-sdk-rs
+# Run: just docs
+
+docsDir: documentation
+indicesDir: documentation/indices
+
+gitignore:
+  addDocsDir: false
+  addDocsSubDirs: true
+  addIndexFiles: false
+
+scan:
+  includeMd: true
+  includeMdx: true
+  includeHiddenDirs: false
+  excludeDirs:
+    - .git
+    - node_modules
+    - images
+    - img
+    - media
+    - assets
+    - css
+    - fonts
+
+concurrency: 2
+
+repos:
+  - name: anthropic-sdk-rs
+    repo: https://github.com/katsuhirohonda/anthropic-sdk-rs
+    sourcePath: examples
+    ref: main
+    contentType: source
+    scan:
+      extensions:
+        - .rs
+        - .md
+
+  - name: claude-platform
+    sitemap: https://platform.claude.com/sitemap.xml
+    paths:
+      - prefix: docs/en/api
+      - prefix: docs/en/about-claude
+        subs:
+          - models
+          - use-case-guides
+      - prefix: docs/en/build-with-claude
+        subs:
+          - prompt-engineering
+      - prefix: docs/en/agents-and-tools
+        subs:
+          - tool-use
+          - agent-skills
+      - prefix: docs/en/test-and-evaluate
+        subs:
+          - strengthen-guardrails
+    selector: main

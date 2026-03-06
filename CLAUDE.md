@@ -34,6 +34,10 @@ cargo clippy
 cargo doc --open
 ```
 
+## Agent Instructions
+
+See `AGENTS.md` for agent workflow rules and library documentation references.
+
 ## Architecture Overview
 
 This is a Rust SDK for the Anthropic API organized as a Cargo workspace with the main SDK in `anthropic-ai-sdk/` and examples demonstrating usage patterns.

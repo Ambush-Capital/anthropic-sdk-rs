@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "devDependencies": {
+    "docpup": "0.1.7"
+  }
+}
