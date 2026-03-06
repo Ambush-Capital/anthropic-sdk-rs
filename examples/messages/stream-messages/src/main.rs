@@ -1,7 +1,7 @@
 use anthropic_ai_sdk::client::AnthropicClient;
 use anthropic_ai_sdk::types::message::{
     CreateMessageParams, Message, MessageClient, MessageError, RequiredMessageParams, Role,
-    Thinking, ThinkingType,
+    Thinking,
 };
 use futures_util::StreamExt;
 use std::env;
@@ -30,10 +30,7 @@ async fn main() {
         max_tokens: 2048,
     })
     .with_stream(true)
-    .with_thinking(Thinking {
-        budget_tokens: 1024,
-        type_: ThinkingType::Enabled,
-    });
+    .with_thinking(Thinking::enabled(1024));
 
     match client.create_message_streaming(&body).await {
         Ok(mut stream) => {

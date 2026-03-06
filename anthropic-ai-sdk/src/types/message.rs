@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use serde::de::{self, Deserializer};
+use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -81,6 +83,9 @@ pub struct CreateMessageParams {
     /// Configuration for enabling Claude's extended thinking.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking: Option<Thinking>,
+    /// Output behavior controls such as effort.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_config: Option<OutputConfig>,
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
@@ -146,6 +151,11 @@ impl CreateMessageParams {
 
     pub fn with_thinking(mut self, thinking: Thinking) -> Self {
         self.thinking = Some(thinking);
+        self
+    }
+
+    pub fn with_output_config(mut self, output_config: OutputConfig) -> Self {
+        self.output_config = Some(output_config);
         self
     }
 
@@ -256,20 +266,106 @@ pub enum ToolChoice {
     None,
 }
 
-/// Configuration for extended thinking
-#[derive(Debug, Deserialize, Serialize)]
+/// Configuration for extended or adaptive thinking.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Thinking {
-    /// Must be at least 1024 tokens
-    pub budget_tokens: usize,
-    #[serde(rename = "type")]
+    /// Token budget for manual thinking (must be at least 1024). None for adaptive mode.
+    pub budget_tokens: Option<usize>,
     pub type_: ThinkingType,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl Thinking {
+    pub fn enabled(budget_tokens: usize) -> Self {
+        Self {
+            budget_tokens: Some(budget_tokens),
+            type_: ThinkingType::Enabled,
+        }
+    }
+
+    pub fn adaptive() -> Self {
+        Self {
+            budget_tokens: None,
+            type_: ThinkingType::Adaptive,
+        }
+    }
+}
+
+impl Serialize for Thinking {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let field_count = if self.budget_tokens.is_some() { 2 } else { 1 };
+        let mut state = serializer.serialize_struct("Thinking", field_count)?;
+        state.serialize_field("type", &self.type_)?;
+        if let Some(bt) = self.budget_tokens {
+            state.serialize_field("budget_tokens", &bt)?;
+        }
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Thinking {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct ThinkingRepr {
+            #[serde(rename = "type")]
+            type_: ThinkingType,
+            #[serde(default)]
+            budget_tokens: Option<usize>,
+        }
+
+        let repr = ThinkingRepr::deserialize(deserializer)?;
+
+        match repr.type_ {
+            ThinkingType::Enabled => {
+                let budget_tokens = repr
+                    .budget_tokens
+                    .ok_or_else(|| de::Error::missing_field("budget_tokens"))?;
+                Ok(Self::enabled(budget_tokens))
+            }
+            ThinkingType::Adaptive => Ok(Self::adaptive()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
 pub enum ThinkingType {
     #[serde(rename = "enabled")]
     Enabled,
+    #[serde(rename = "adaptive")]
+    Adaptive,
 }
+
+#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq, Eq)]
+pub struct OutputConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Effort>,
+}
+
+impl OutputConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_effort(mut self, effort: Effort) -> Self {
+        self.effort = Some(effort);
+        self
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Effort {
+    Low,
+    Medium,
+    High,
+    Max,
+}
+
 /// Message metadata
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Metadata {
@@ -450,4 +546,77 @@ pub struct StreamError {
     #[serde(rename = "type")]
     pub type_: String,
     pub message: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn required_params(model: &str) -> RequiredMessageParams {
+        RequiredMessageParams {
+            model: model.to_string(),
+            messages: vec![Message::new_text(Role::User, "Hello, Claude")],
+            max_tokens: 1024,
+        }
+    }
+
+    #[test]
+    fn manual_thinking_serializes_budget_tokens() {
+        let params = CreateMessageParams::new(required_params("claude-3-7-sonnet-latest"))
+            .with_thinking(Thinking::enabled(2048));
+
+        let value = serde_json::to_value(&params).unwrap();
+
+        assert_eq!(
+            value["thinking"],
+            json!({
+                "type": "enabled",
+                "budget_tokens": 2048
+            })
+        );
+        assert!(value.get("output_config").is_none());
+    }
+
+    #[test]
+    fn adaptive_thinking_serializes_without_budget_tokens() {
+        let params = CreateMessageParams::new(required_params("claude-sonnet-4-6"))
+            .with_thinking(Thinking::adaptive())
+            .with_output_config(OutputConfig::new().with_effort(Effort::Medium));
+
+        let value = serde_json::to_value(&params).unwrap();
+
+        assert_eq!(
+            value["thinking"],
+            json!({
+                "type": "adaptive"
+            })
+        );
+        assert_eq!(
+            value["output_config"],
+            json!({
+                "effort": "medium"
+            })
+        );
+    }
+
+    #[test]
+    fn adaptive_thinking_deserializes_without_budget_tokens() {
+        let thinking: Thinking = serde_json::from_value(json!({
+            "type": "adaptive"
+        }))
+        .unwrap();
+
+        assert_eq!(thinking, Thinking::adaptive());
+    }
+
+    #[test]
+    fn enabled_thinking_requires_budget_tokens() {
+        let error = serde_json::from_value::<Thinking>(json!({
+            "type": "enabled"
+        }))
+        .unwrap_err();
+
+        assert!(error.to_string().contains("budget_tokens"));
+    }
 }

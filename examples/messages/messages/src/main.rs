@@ -1,6 +1,7 @@
 use anthropic_ai_sdk::client::AnthropicClient;
 use anthropic_ai_sdk::types::message::{
-    CreateMessageParams, Message, MessageClient, MessageError, RequiredMessageParams, Role,
+    CreateMessageParams, Effort, Message, MessageClient, MessageError, OutputConfig,
+    RequiredMessageParams, Role, Thinking,
 };
 use std::env;
 use tracing::{error, info};
@@ -23,17 +24,20 @@ async fn main() {
     let client = AnthropicClient::new::<MessageError>(api_key, api_version).unwrap();
 
     let body = CreateMessageParams::new(RequiredMessageParams {
-        model: "claude-3-7-sonnet-latest".to_string(),
+        model: "claude-sonnet-4-6".to_string(),
         messages: vec![Message::new_text(Role::User, "Hello, Claude")],
-        max_tokens: 1024,
-    });
+        max_tokens: 4096,
+    })
+    .with_thinking(Thinking::adaptive())
+    .with_output_config(OutputConfig::new().with_effort(Effort::Medium));
 
     // Or with some optional parameters
     // let params_with_options = CreateMessageParams::new(RequiredMessageParams {
-    //     model: "claude-3-7-sonnet-latest".to_string(),
+    //     model: "claude-opus-4-5".to_string(),
     //     messages: vec![Message::new_text(Role::User, "Hello, Claude")],
-    //     max_tokens: 1024,
+    //     max_tokens: 4096,
     // })
+    // .with_thinking(Thinking::enabled(2048))
     // .with_temperature(0.7)
     // .with_system("You are a helpful assistant");
 
