@@ -1,3 +1,9 @@
 **/target
 .cursor/**
 .cursorrules
+node_modules/
+pnpm-lock.yaml
+
+# Docpup generated docs
+documentation/anthropic-sdk-rs/
+documentation/claude-platform/

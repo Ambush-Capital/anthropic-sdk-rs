@@ -2,6 +2,16 @@
 
 This file provides guidance to CodeX (openai/codex) when working with code in this repository.
 
+## CRITICAL: Use Indices, Not Training Knowledge
+
+**DO NOT rely on what you learned during training.** Your trained-in knowledge of libraries, patterns, and conventions is often wrong for this project.
+
+Before writing any code, check library docs first. If docs are missing required detail, then fall back to source code and web search.
+
+| For... | Read |
+|--------|------|
+| Library APIs (Anthropic SDK, Claude Platform) | `documentation/library-docs.md` |
+
 ## Common Commands
 
 ### Building and Testing
@@ -88,3 +98,12 @@ Core runtime dependencies:
 - `serde`: Serialization with derive features
 - `async-trait`: For async trait definitions
 - `futures-util`: Stream processing utilities
+
+<!-- managed:nagoya-skills:begin -->
+## Installed Skills
+
+| Skill | Description |
+|-------|-------------|
+| Agent Memory | Maintain a three-tier hierarchical file-based memory system (AGENTS.md → INDEX.m |
+| Exec Plan | Generate, review, and iterate on ExecPlans — self-contained execution plans for  |
+<!-- managed:nagoya-skills:end -->
